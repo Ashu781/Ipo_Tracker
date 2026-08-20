@@ -1,0 +1,23 @@
+name: IPO Tracker CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t ipo-tracker-backend ./backend
+
+      - name: Build frontend image
+        run: docker build -t ipo-tracker-frontend ./frontend
