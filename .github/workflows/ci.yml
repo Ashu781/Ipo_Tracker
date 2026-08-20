@@ -16,6 +16,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Create CI environment file
+        run: |
+          cat > .env <<'EOF'
+          POSTGRES_DB=ipo_tracker_test
+          POSTGRES_USER=ipo_test
+          POSTGRES_PASSWORD=ipo_test_password
+          BACKEND_PORT=5000
+          FRONTEND_URL=http://localhost
+          REACT_APP_API_URL=http://localhost/api
+          FRONTEND_PORT=3000
+          EOF
+
       - name: Start PostgreSQL
         run: docker compose up -d postgres
 
