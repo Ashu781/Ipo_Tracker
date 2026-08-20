@@ -9,8 +9,22 @@ on:
       - main
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Start PostgreSQL
+        run: docker compose up -d postgres
+
+      - name: Run backend tests
+        run: docker compose run --rm backend-test
+
   docker-build:
     runs-on: ubuntu-latest
+    needs: test
 
     steps:
       - name: Checkout repository
