@@ -46,6 +46,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Convert repository owner to lowercase
+        id: lowercase
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -59,8 +63,8 @@ jobs:
           context: ./backend
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/ipo_tracker/backend:latest
-            ghcr.io/${{ github.repository_owner }}/ipo_tracker/backend:${{ github.sha }}
+            ghcr.io/${{ steps.lowercase.outputs.owner }}/ipo_tracker/backend:latest
+            ghcr.io/${{ steps.lowercase.outputs.owner }}/ipo_tracker/backend:${{ github.sha }}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
@@ -68,5 +72,5 @@ jobs:
           context: ./frontend
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/ipo_tracker/frontend:latest
-            ghcr.io/${{ github.repository_owner }}/ipo_tracker/frontend:${{ github.sha }}
+            ghcr.io/${{ steps.lowercase.outputs.owner }}/ipo_tracker/frontend:latest
+            ghcr.io/${{ steps.lowercase.outputs.owner }}/ipo_tracker/frontend:${{ github.sha }}
