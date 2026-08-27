@@ -97,6 +97,41 @@ jobs:
 
             docker compose -f docker-compose.prod.yml up -d
 
-            echo "Deployment completed successfully"
+            echo "Waiting for backend to become healthy..."
+
+            for i in {1..30}; do
+              STATUS=$(docker inspect --format='{{.State.Health.Status}}' ipo-tracker-backend)
+
+              if [ "$STATUS" = "healthy" ]; then
+                echo "Backend is healthy."
+                break
+              fi
+
+              if [ "$STATUS" = "unhealthy" ]; then
+                echo "Backend is unhealthy."
+                exit 1
+              fi
+
+              echo "Backend status: $STATUS"
+              sleep 2
+            done
+
+            if [ "$STATUS" != "healthy" ]; then
+              echo "Backend did not become healthy within 60 seconds."
+              exit 1
+            fi
+
+            echo "Checking public website..."
+
+            HTTP_STATUS=$(curl -L -s -o /dev/null -w "%{http_code}" https://ashuweb.online)
+
+            if [ "$HTTP_STATUS" != "200" ]; then
+              echo "Website health check failed. HTTP status: $HTTP_STATUS"
+              exit 1
+            fi
+
+            echo "Website is healthy. HTTP status: $HTTP_STATUS"
+
+            echo "Deployment completed successfully."
 
             docker compose -f docker-compose.prod.yml ps
