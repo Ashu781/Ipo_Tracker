@@ -89,49 +89,133 @@ jobs:
 
             cd ~/ipo-tracker
 
-            export IMAGE_TAG=${{ github.sha }}
+            NEW_TAG=${{ github.sha }}
 
-            echo "Deploying image tag: $IMAGE_TAG"
+            echo "New deployment tag: $NEW_TAG"
+
+            echo "Detecting currently running backend image..."
+
+            PREVIOUS_IMAGE=$(docker inspect ipo-tracker-backend \
+              --format '{{.Config.Image}}')
+
+            PREVIOUS_TAG=$(echo "$PREVIOUS_IMAGE" | cut -d: -f2)
+
+            echo "Previous deployment tag: $PREVIOUS_TAG"
+
+            echo "Pulling new images..."
+
+            export IMAGE_TAG=$NEW_TAG
 
             docker compose -f docker-compose.prod.yml pull
+
+            echo "Deploying new version..."
 
             docker compose -f docker-compose.prod.yml up -d
 
             echo "Waiting for backend to become healthy..."
 
+            HEALTHY=false
+
             for i in {1..30}; do
-              STATUS=$(docker inspect --format='{{.State.Health.Status}}' ipo-tracker-backend)
+              STATUS=$(docker inspect \
+                --format='{{.State.Health.Status}}' \
+                ipo-tracker-backend 2>/dev/null || echo "missing")
 
               if [ "$STATUS" = "healthy" ]; then
                 echo "Backend is healthy."
+                HEALTHY=true
                 break
               fi
 
               if [ "$STATUS" = "unhealthy" ]; then
                 echo "Backend is unhealthy."
-                exit 1
+                break
               fi
 
               echo "Backend status: $STATUS"
               sleep 2
             done
 
-            if [ "$STATUS" != "healthy" ]; then
-              echo "Backend did not become healthy within 60 seconds."
-              exit 1
-            fi
+            if [ "$HEALTHY" = true ]; then
 
-            echo "Checking public website..."
+              echo "Checking public website..."
 
-            HTTP_STATUS=$(curl -L -s -o /dev/null -w "%{http_code}" https://ashuweb.online)
+              HTTP_STATUS=$(curl -L -s -o /dev/null -w "%{http_code}" https://ashuweb.online)
 
-            if [ "$HTTP_STATUS" != "200" ]; then
+              if [ "$HTTP_STATUS" = "200" ]; then
+                echo "Website is healthy. HTTP status: $HTTP_STATUS"
+                echo "Deployment completed successfully."
+                docker compose -f docker-compose.prod.yml ps
+                exit 0
+              fi
+
               echo "Website health check failed. HTTP status: $HTTP_STATUS"
-              exit 1
+
+            else
+
+              echo "Backend health check failed."
+
             fi
 
-            echo "Website is healthy. HTTP status: $HTTP_STATUS"
+            echo "========================================="
+            echo "DEPLOYMENT FAILED"
+            echo "Starting automatic rollback..."
+            echo "========================================="
 
-            echo "Deployment completed successfully."
+            echo "Rolling back to: $PREVIOUS_TAG"
 
+            export IMAGE_TAG=$PREVIOUS_TAG
+
+            docker compose -f docker-compose.prod.yml pull
+
+            docker compose -f docker-compose.prod.yml up -d
+
+            echo "Waiting for rollback backend to become healthy..."
+
+            ROLLBACK_HEALTHY=false
+
+            for i in {1..30}; do
+              STATUS=$(docker inspect \
+                --format='{{.State.Health.Status}}' \
+                ipo-tracker-backend 2>/dev/null || echo "missing")
+
+              if [ "$STATUS" = "healthy" ]; then
+                echo "Rollback backend is healthy."
+                ROLLBACK_HEALTHY=true
+                break
+              fi
+
+              if [ "$STATUS" = "unhealthy" ]; then
+                echo "Rollback backend is unhealthy."
+                break
+              fi
+
+              echo "Rollback backend status: $STATUS"
+              sleep 2
+            done
+
+            if [ "$ROLLBACK_HEALTHY" = true ]; then
+
+              echo "Checking website after rollback..."
+
+              HTTP_STATUS=$(curl -L -s -o /dev/null -w "%{http_code}" https://ashuweb.online)
+
+              if [ "$HTTP_STATUS" = "200" ]; then
+                echo "Rollback successful."
+                echo "Previous version $PREVIOUS_TAG has been restored."
+                docker compose -f docker-compose.prod.yml ps
+                exit 1
+              fi
+
+              echo "Rollback website check failed. HTTP status: $HTTP_STATUS"
+
+            else
+
+              echo "Rollback backend health check failed."
+
+            fi
+
+            echo "CRITICAL: Automatic rollback failed."
+            echo "Production may require manual intervention."
             docker compose -f docker-compose.prod.yml ps
+            exit 1

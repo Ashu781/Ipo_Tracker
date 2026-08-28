@@ -37,3 +37,6 @@ crash.*.log
 # Temporary files
 *.swp
 *.swo
+
+# Python virtual env
+.venv/
