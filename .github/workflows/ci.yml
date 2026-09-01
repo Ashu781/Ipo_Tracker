@@ -80,6 +80,10 @@ jobs:
     environment:
       name: production
 
+    concurrency:
+      group: production-deployment
+      cancel-in-progress: false
+
     permissions:
       id-token: write
       contents: read
