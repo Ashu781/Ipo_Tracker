@@ -90,3 +90,5 @@ docker compose down -v
 ## Important
 
 The initial records are demo/seed data. GMP is unofficial market information and should be clearly labeled as indicative when real data is added.
+
+# Deployment authentication hardened
