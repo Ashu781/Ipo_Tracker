@@ -101,15 +101,12 @@ jobs:
           EC2_INSTANCE_ID: i-0da37629072ec5d0c
           IMAGE_TAG: ${{ github.sha }}
         run: |
-
           set -e
 
           echo "========================================="
           echo "Starting SSM deployment"
           echo "========================================="
-
           echo "Deployment tag: $IMAGE_TAG"
-
           echo "Sending deployment command to EC2..."
 
           COMMAND_ID=$(aws ssm send-command \
@@ -120,12 +117,14 @@ jobs:
             --output text)
 
           echo "SSM Command ID: $COMMAND_ID"
-
           echo "Waiting for deployment to finish..."
 
-          aws ssm wait command-executed \
+          if ! aws ssm wait command-executed \
             --command-id "$COMMAND_ID" \
-            --instance-id "$EC2_INSTANCE_ID"
+            --instance-id "$EC2_INSTANCE_ID"; then
+            echo "SSM command reported a failure."
+            echo "Continuing so deployment output can be retrieved."
+          fi
 
           echo "Retrieving deployment output..."
 
